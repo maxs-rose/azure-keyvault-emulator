@@ -112,16 +112,15 @@ namespace AzureKeyVaultEmulator.Emulator.Services
         /// <param name="algo">The signature algorithm name (e.g., RS256, PS384, ES512).</param>
         /// <returns>contains the corresponding hash algorithm if the conversion succeeded.</returns>
         /// <remarks>
-        /// Taken from https://github.com/Azure/azure-sdk-for-net/blob/c8964dc0d3101c9f34157c3db99e169e784ee08c/sdk/keyvault/Azure.Security.KeyVault.Keys/src/Cryptography/SignatureAlgorithm.cs#L209-L235
-        /// since its internal :(
+        /// Based on https://github.com/Azure/azure-sdk-for-net/blob/c8964dc0d3101c9f34157c3db99e169e784ee08c/sdk/keyvault/Azure.Security.KeyVault.Keys/src/Cryptography/SignatureAlgorithm.cs#L209-L235
         /// </remarks>
         private HashAlgorithmName GetHashAlgo(string algo)
         {
             return algo switch
             {
-                "RS256" or "PS256" or "ES256" or "ES256K" or "HS256" => HashAlgorithmName.SHA256,
-                "RS384" or "PS384" or "ES384" or "HS384" => HashAlgorithmName.SHA384,
-                "RS512" or "PS512" or "ES512" or "HS512" => HashAlgorithmName.SHA512,
+                "RS256" or "PS256" => HashAlgorithmName.SHA256,
+                "RS384" or "PS384" => HashAlgorithmName.SHA384,
+                "RS512" or "PS512" => HashAlgorithmName.SHA512,
                 _ => throw new ArgumentException($"Invalid signing algorithm: '{algo}'.")
             };
         }
@@ -132,8 +131,7 @@ namespace AzureKeyVaultEmulator.Emulator.Services
         /// <param name="algo"><see cref="HashAlgorithmName"/> to get the padding for</param>
         /// <returns>The <see cref="RSASignaturePadding"/> for the given <see cref="HashAlgorithmName"/></returns>
         /// <remarks>
-        /// Taken from https://github.com/Azure/azure-sdk-for-net/blob/c8964dc0d3101c9f34157c3db99e169e784ee08c/sdk/keyvault/Azure.Security.KeyVault.Keys/src/Cryptography/SignatureAlgorithm.cs#L258-L275
-        /// since its internal :(
+        /// Based on https://github.com/Azure/azure-sdk-for-net/blob/c8964dc0d3101c9f34157c3db99e169e784ee08c/sdk/keyvault/Azure.Security.KeyVault.Keys/src/Cryptography/SignatureAlgorithm.cs#L258-L275
         /// </remarks>
         private RSASignaturePadding GetPadding(string algo)
         {

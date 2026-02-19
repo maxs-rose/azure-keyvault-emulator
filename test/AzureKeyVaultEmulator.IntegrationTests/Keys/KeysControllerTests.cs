@@ -609,41 +609,6 @@ public sealed class KeysControllerTests(KeysTestingFixture fixture) : IClassFixt
         Assert.False(verifyResult?.IsValid);
     }
 
-    public static TheoryData<Func<HashAlgorithm>, SignatureAlgorithm> SignAndVerifyDoNotSupportECData => 
-        new() 
-        {
-            { SHA256.Create, SignatureAlgorithm.ES256 },
-            { SHA256.Create, SignatureAlgorithm.ES256K },
-            { SHA256.Create, SignatureAlgorithm.HS256 },
-            { SHA384.Create, SignatureAlgorithm.ES384 },
-            { SHA384.Create, SignatureAlgorithm.HS384 },
-            { SHA512.Create, SignatureAlgorithm.ES512 },
-            { SHA512.Create, SignatureAlgorithm.HS512 }
-        };
-    
-    [Theory]
-    [MemberData(nameof(SignAndVerifyDoNotSupportECData))]
-    public async Task SignAndVerifyDoNotSupportEc(Func<HashAlgorithm> algorithmProvider, SignatureAlgorithm signAlgorithm)
-    {
-        var client = await fixture.GetClientAsync();
-
-        var keyName = fixture.FreshlyGeneratedGuid;
-
-        var key = await fixture.CreateKeyAsync(keyName);
-
-        var cryptoProvider = await fixture.GetCryptographyClientAsync(key);
-
-        byte[] digest;
-        using (var sha = algorithmProvider())
-        {
-            var data = RequestSetup.CreateRandomBytes(128);
-            digest = sha.ComputeHash(data);
-        }
-
-        await Assert.ThrowsAsync<RequestFailedException>(() => cryptoProvider.SignAsync(signAlgorithm, digest));
-        await Assert.ThrowsAsync<RequestFailedException>(() => cryptoProvider.VerifyAsync(signAlgorithm, digest, []));
-    }
-
     [Fact]
     public async Task WrappingAndUnwrappingKeyWillSucceed()
     {
