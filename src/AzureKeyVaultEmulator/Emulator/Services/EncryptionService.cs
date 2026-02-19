@@ -14,19 +14,17 @@ namespace AzureKeyVaultEmulator.Emulator.Services
     {
         private readonly RSA _rsa;
 
-        private readonly RSASignaturePadding _padding = RSASignaturePadding.Pkcs1;
-
         public EncryptionService()
         {
             _rsa = RSA.Create();
             _rsa.ImportFromPem(RsaPem.FullPem);
         }
 
-        public string SignWithKey(RSA key, HashAlgorithmName hashingAlgorithm, string data)
+        public string SignWithKey(RSA key, HashAlgorithmName hashAlgo, string data)
         {
             var bytes = data.Base64UrlDecode();
 
-            var signedBytes = key.SignHash(bytes, hashingAlgorithm, _padding);
+            var signedBytes = key.SignHash(bytes, hashAlgo, GetPadding(hashAlgo));
 
             return signedBytes.Base64UrlEncode();
         }
@@ -36,7 +34,7 @@ namespace AzureKeyVaultEmulator.Emulator.Services
             var hashBytes = digest.Base64UrlDecode();
             var sigBytes = signature.Base64UrlDecode();
 
-            return key.VerifyHash(hashBytes, sigBytes, hashAlgo, _padding);
+            return key.VerifyHash(hashBytes, sigBytes, hashAlgo, GetPadding(hashAlgo));
         }
 
         public T DecryptFromKeyVaultJwe<T>(string jweToken)
@@ -106,6 +104,28 @@ namespace AzureKeyVaultEmulator.Emulator.Services
         public void Dispose()
         {
             _rsa.Dispose();
+        }
+
+        
+        // Taken from https://github.com/Azure/azure-sdk-for-net/blob/c8964dc0d3101c9f34157c3db99e169e784ee08c/sdk/keyvault/Azure.Security.KeyVault.Keys/src/Cryptography/SignatureAlgorithm.cs#L258-L275
+        // since its internal :(
+        private RSASignaturePadding GetPadding(HashAlgorithmName algo)
+        {
+            switch (algo.Name)
+            {
+                case "RS256":
+                case "RS384":
+                case "RS512":
+                    return RSASignaturePadding.Pkcs1;
+
+                case "PS256":
+                case "PS384":
+                case "PS512":
+                    return RSASignaturePadding.Pss;
+                
+                default:
+                    return RSASignaturePadding.Pkcs1;
+            }
         }
     }
 }
