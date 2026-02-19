@@ -6,8 +6,8 @@ namespace AzureKeyVaultEmulator.Emulator.Services
     {
         string CreateKeyVaultJwe(object value);
         T DecryptFromKeyVaultJwe<T>(string jwe) where T : notnull;
-        string SignWithKey(RSA key, string data);
-        bool VerifyData(RSA key, string hash, string signature);
+        string SignWithKey(RSA key, HashAlgorithmName hashAlgo, string data);
+        bool VerifyData(RSA key, HashAlgorithmName hashAlgo, string hash, string signature);
     }
 
     public class EncryptionService : IEncryptionService
@@ -15,7 +15,6 @@ namespace AzureKeyVaultEmulator.Emulator.Services
         private readonly RSA _rsa;
 
         private readonly RSASignaturePadding _padding = RSASignaturePadding.Pkcs1;
-        private readonly HashAlgorithmName _hashingAlgorithm = HashAlgorithmName.SHA256;
 
         public EncryptionService()
         {
@@ -23,21 +22,21 @@ namespace AzureKeyVaultEmulator.Emulator.Services
             _rsa.ImportFromPem(RsaPem.FullPem);
         }
 
-        public string SignWithKey(RSA key, string data)
+        public string SignWithKey(RSA key, HashAlgorithmName hashingAlgorithm, string data)
         {
             var bytes = data.Base64UrlDecode();
 
-            var signedBytes = key.SignHash(bytes, _hashingAlgorithm, _padding);
+            var signedBytes = key.SignHash(bytes, hashingAlgorithm, _padding);
 
             return signedBytes.Base64UrlEncode();
         }
 
-        public bool VerifyData(RSA key, string digest, string signature)
+        public bool VerifyData(RSA key, HashAlgorithmName hashAlgo, string digest, string signature)
         {
             var hashBytes = digest.Base64UrlDecode();
             var sigBytes = signature.Base64UrlDecode();
 
-            return key.VerifyHash(hashBytes, sigBytes, _hashingAlgorithm, _padding);
+            return key.VerifyHash(hashBytes, sigBytes, hashAlgo, _padding);
         }
 
         public T DecryptFromKeyVaultJwe<T>(string jweToken)
