@@ -535,8 +535,20 @@ public sealed class KeysControllerTests(KeysTestingFixture fixture) : IClassFixt
         //var imported = (await client.ImportKeyAsync(null)).Value;
     }
 
-    [Fact]
-    public async Task SignAndVerifyWithKeySucceeds()
+    public static TheoryData<Func<HashAlgorithm>, SignatureAlgorithm> TestSignAndVerifyData => 
+        new() 
+        {
+            { SHA256.Create, SignatureAlgorithm.RS256 },
+            { SHA256.Create, SignatureAlgorithm.PS256 },
+            { SHA384.Create, SignatureAlgorithm.RS384 },
+            { SHA384.Create, SignatureAlgorithm.PS384 },
+            { SHA512.Create, SignatureAlgorithm.RS512 },
+            { SHA512.Create, SignatureAlgorithm.PS512 }
+        };
+    
+    [Theory]
+    [MemberData(nameof(TestSignAndVerifyData))]
+    public async Task TestSignAndVerify(Func<HashAlgorithm> algorithmProvider, SignatureAlgorithm signAlgorithm)
     {
         // https://github.com/Azure/azure-sdk-for-net/blob/Azure.Security.KeyVault.Keys_4.7.0/sdk/keyvault/Azure.Security.KeyVault.Keys/samples/Sample5_SignVerify.md
         var client = await fixture.GetClientAsync();
@@ -548,13 +560,11 @@ public sealed class KeysControllerTests(KeysTestingFixture fixture) : IClassFixt
         var cryptoProvider = await fixture.GetCryptographyClientAsync(key);
 
         byte[] digest;
-        using (var sha = SHA256.Create())
+        using (var sha = algorithmProvider())
         {
             var data = RequestSetup.CreateRandomBytes(128);
-            digest = sha.ComputeHash(data); // 32-byte SHA-256 digest
+            digest = sha.ComputeHash(data);
         }
-
-        var signAlgorithm = SignatureAlgorithm.RS256;
 
         var signResult = await cryptoProvider.SignAsync(signAlgorithm, digest);
 
@@ -563,8 +573,20 @@ public sealed class KeysControllerTests(KeysTestingFixture fixture) : IClassFixt
         Assert.True(verifyResult.IsValid);
     }
 
-    [Fact]
-    public async Task SigningAndVerifyingWithDifferentKeysWillFail()
+    public static TheoryData<Func<byte[], byte[]>, SignatureAlgorithm> SigningAndVerifyingWithDifferentKeysWillFailData =>
+        new()
+        {
+            { SHA256.HashData, SignatureAlgorithm.RS256 },
+            { SHA256.HashData, SignatureAlgorithm.PS256 },
+            { SHA384.HashData, SignatureAlgorithm.RS384 },
+            { SHA384.HashData, SignatureAlgorithm.PS384 },
+            { SHA512.HashData, SignatureAlgorithm.RS512 },
+            { SHA512.HashData, SignatureAlgorithm.PS512 }
+        };
+
+    [Theory]
+    [MemberData(nameof(SigningAndVerifyingWithDifferentKeysWillFailData))]
+    public async Task SigningAndVerifyingWithDifferentKeysWillFail(Func<byte[], byte[]> digestor, SignatureAlgorithm signAlgorithm)
     {
         var client = await fixture.GetClientAsync();
 
@@ -578,15 +600,48 @@ public sealed class KeysControllerTests(KeysTestingFixture fixture) : IClassFixt
         var verifyProvider = await fixture.GetCryptographyClientAsync(verifyKey);
 
         var data = RequestSetup.CreateRandomBytes(64);
-        var digest = SHA256.HashData(data);
-
-        var signAlgorithm = SignatureAlgorithm.RS256;
+        var digest = digestor(data);
 
         var signResult = await signProvider.SignAsync(signAlgorithm, digest);
 
         var verifyResult = await verifyProvider.VerifyAsync(signAlgorithm, digest, signResult.Signature);
 
         Assert.False(verifyResult?.IsValid);
+    }
+
+    public static TheoryData<Func<HashAlgorithm>, SignatureAlgorithm> SignAndVerifyDoNotSupportECData => 
+        new() 
+        {
+            { SHA256.Create, SignatureAlgorithm.ES256 },
+            { SHA256.Create, SignatureAlgorithm.ES256K },
+            { SHA256.Create, SignatureAlgorithm.HS256 },
+            { SHA384.Create, SignatureAlgorithm.ES384 },
+            { SHA384.Create, SignatureAlgorithm.HS384 },
+            { SHA512.Create, SignatureAlgorithm.ES512 },
+            { SHA512.Create, SignatureAlgorithm.HS512 }
+        };
+    
+    [Theory]
+    [MemberData(nameof(SignAndVerifyDoNotSupportECData))]
+    public async Task SignAndVerifyDoNotSupportEc(Func<HashAlgorithm> algorithmProvider, SignatureAlgorithm signAlgorithm)
+    {
+        var client = await fixture.GetClientAsync();
+
+        var keyName = fixture.FreshlyGeneratedGuid;
+
+        var key = await fixture.CreateKeyAsync(keyName);
+
+        var cryptoProvider = await fixture.GetCryptographyClientAsync(key);
+
+        byte[] digest;
+        using (var sha = algorithmProvider())
+        {
+            var data = RequestSetup.CreateRandomBytes(128);
+            digest = sha.ComputeHash(data);
+        }
+
+        await Assert.ThrowsAsync<RequestFailedException>(() => cryptoProvider.SignAsync(signAlgorithm, digest));
+        await Assert.ThrowsAsync<RequestFailedException>(() => cryptoProvider.VerifyAsync(signAlgorithm, digest, []));
     }
 
     [Fact]

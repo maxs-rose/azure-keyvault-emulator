@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using AzureKeyVaultEmulator.Shared.Models.Secrets;
 using AzureKeyVaultEmulator.Shared.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -303,10 +302,7 @@ namespace AzureKeyVaultEmulator.Keys.Services
 
             var key = await context.Keys.SafeGetAsync<KeyBundle, KeyAttributes>(name, version);
 
-            if(!TryGetHashAlgo(algo, out var hashAlgo))
-                throw new ArgumentException($"Invalid signing algorithm: '{algo}'.");
-            
-            var signature = encryptionService.SignWithKey(key.Key.RSAKey, hashAlgo, digest);
+            var signature = encryptionService.SignWithKey(key.Key.RSAKey, algo, digest);
 
             return new KeyOperationResult
             {
@@ -324,12 +320,9 @@ namespace AzureKeyVaultEmulator.Keys.Services
 
             var key = await context.Keys.SafeGetAsync<KeyBundle, KeyAttributes>(name, version);
 
-            if(!TryGetHashAlgo(algo, out var hashAlgo))
-                throw new ArgumentException($"Invalid signing algorithm: '{algo}'.");
-
             return new ValueModel<bool>
             {
-                Value = encryptionService.VerifyData(key.Key.RSAKey, hashAlgo, digest, signature)
+                Value = encryptionService.VerifyData(key.Key.RSAKey, algo, digest, signature)
             };
         }
 
@@ -471,40 +464,6 @@ namespace AzureKeyVaultEmulator.Keys.Services
             var skipToken = tokenService.CreateSkipToken(maxResults);
 
             return httpContextAccessor.GetNextLink(skipToken, maxResults);
-        }
-        
-        private bool TryGetHashAlgo(string algo, out HashAlgorithmName hashAlgo)
-        {
-            // Taken from https://github.com/Azure/azure-sdk-for-net/blob/c8964dc0d3101c9f34157c3db99e169e784ee08c/sdk/keyvault/Azure.Security.KeyVault.Keys/src/Cryptography/SignatureAlgorithm.cs#L209-L235
-            // since the method is not public :(
-            switch (algo)
-            {
-                case "RS256":
-                case "PS256":
-                case "ES256":
-                case "ES256K":
-                case "HS256":
-                    hashAlgo = HashAlgorithmName.SHA256;
-                    return true;
-                
-                case "RS384":
-                case "PS384":
-                case "ES384":
-                case "HS384":
-                    hashAlgo = HashAlgorithmName.SHA384;
-                    return true;
-             
-                case "RS512":
-                case "PS512":
-                case "ES512":
-                case "HS512":
-                    hashAlgo = HashAlgorithmName.SHA512;
-                    return true;
-                    
-                default:
-                    hashAlgo = default;
-                    return false;
-            }
         }
     }
 }
