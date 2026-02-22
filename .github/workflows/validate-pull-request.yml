@@ -30,6 +30,7 @@ jobs:
         run: |
           dotnet dev-certs https --clean
           dotnet dev-certs https --trust
+        continue-on-error: true
 
       - name: Run API Integration Tests
         run: dotnet test ./test/AzureKeyVaultEmulator.IntegrationTests/AzureKeyVaultEmulator.IntegrationTests.csproj
